@@ -1,6 +1,7 @@
 """
 Script huấn luyện và so sánh các mô hình NER (CRF, Machine Learning, Bi-LSTM)
 Được chuyển đổi từ Jupyter Notebook.
+Đã sửa lỗi logic biến và bổ sung SVM đầy đủ.
 """
 
 import os
@@ -11,8 +12,10 @@ import warnings
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Sklearn Imports
+from sklearn.svm import LinearSVC
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.linear_model import LogisticRegression
@@ -20,6 +23,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 from sklearn_crfsuite import CRF
 from sklearn_crfsuite.metrics import flat_classification_report
+from sklearn.metrics import confusion_matrix
 
 # Deep Learning Imports (TensorFlow/Keras)
 try:
@@ -27,17 +31,9 @@ try:
     from tensorflow.keras.utils import to_categorical
     from tensorflow.keras.models import Sequential
     from tensorflow.keras.layers import Embedding, Bidirectional, LSTM, Dense, TimeDistributed, Dropout
+    from tensorflow.keras.backend import clear_session
 except ImportError:
     print("Warning: TensorFlow không được cài đặt hoặc lỗi import.")
-
-# PhoBERT / PyTorch Imports
-try:
-    import torch
-    from torch.utils.data import Dataset, DataLoader
-    from transformers import AutoTokenizer, AutoModelForTokenClassification
-    from torch.optim import AdamW
-except ImportError:
-    print("Warning: PyTorch hoặc Transformers không được cài đặt.")
 
 # Bỏ qua các warning không cần thiết
 warnings.filterwarnings("ignore")
@@ -73,7 +69,7 @@ def get_tag_mappings(all_sents):
     idx2tag = {i: t for t, i in tag2idx.items()}
     return tag2idx, idx2tag
 
-# --- Feature Engineering cho Classical ML (CRF, LR, RF) ---
+# --- Feature Engineering cho Classical ML (CRF, LR, RF, SVM) ---
 def word2features(sent, i):
     word = sent[i][0]
     features = {
@@ -113,18 +109,11 @@ def prepare_dl_data(sents, word2idx, tag2idx, max_len):
     return np.array(X), np.array(y)
 
 def measure_performance(model_name, train_func, *args, **kwargs):
-    """
-    Hàm wrapper để đo thời gian và bộ nhớ của một hàm huấn luyện.
-    """
+    """Hàm wrapper để đo thời gian và bộ nhớ."""
     print(f"\n--- ⏱️ Bắt đầu đo lường: {model_name} ---")
-    
-    # 1. Bắt đầu theo dõi RAM
     tracemalloc.start()
-    
-    # 2. Bắt đầu bấm giờ
     start_time = time.time()
     
-    # 3. Chạy hàm huấn luyện thực tế
     try:
         model, f1_score = train_func(*args, **kwargs)
     except Exception as e:
@@ -132,15 +121,12 @@ def measure_performance(model_name, train_func, *args, **kwargs):
         tracemalloc.stop()
         return None
     
-    # 4. Kết thúc bấm giờ
     end_time = time.time()
-    
-    # 5. Lấy thông số RAM (current, peak)
     current, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
     
     execution_time = end_time - start_time
-    peak_memory_mb = peak / (1024 * 1024) # Đổi từ Byte sang MB
+    peak_memory_mb = peak / (1024 * 1024) 
     
     print(f" Hoàn tất {model_name}:")
     print(f"   - F1-Score: {f1_score:.4f}")
@@ -154,20 +140,45 @@ def measure_performance(model_name, train_func, *args, **kwargs):
         'Memory (MB)': peak_memory_mb
     }
 
+def plot_ner_confusion_matrix(y_true, y_pred, labels, title="Confusion Matrix", filename=None):
+    """Vẽ và lưu Confusion Matrix cho bài toán NER."""
+    cm = confusion_matrix(y_true, y_pred, labels=labels)
+    # Chuẩn hóa
+    cm_norm = cm.astype('float') / (cm.sum(axis=1)[:, np.newaxis] + 1e-10)
+
+    plt.figure(figsize=(12, 10))
+    sns.heatmap(cm_norm, annot=True, fmt='.2f', cmap='Blues',
+                xticklabels=labels, yticklabels=labels)
+    
+    plt.title(title)
+    plt.ylabel('True Label')
+    plt.xlabel('Predicted Label')
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    
+    if filename:
+        plt.savefig(filename)
+        print(f"  [Info] Đã lưu biểu đồ: {filename}")
+    # plt.show() # Comment lại nếu chạy batch để tránh pop-up liên tục
+    plt.close()
+
 # =============================================================================
 # PHẦN 2: CÁC HÀM TRAIN MODEL
 # =============================================================================
 
 def train_crf(X_train, y_train, X_test, y_test):
-    print("... Đang training CRF ...")
     crf = CRF(algorithm='lbfgs', c1=0.1, c2=0.1, max_iterations=100)
     crf.fit(X_train, y_train)
     
     y_pred = crf.predict(X_test)
     
-    print("\n" + "="*40)
-    print(">>> DETAILED REPORT: CRF")
-    print("="*40)
+    flat_true = [item for sublist in y_test for item in sublist]
+    flat_pred = [item for sublist in y_pred for item in sublist]
+    labels = sorted(list(set(flat_true + flat_pred)))
+    
+    plot_ner_confusion_matrix(flat_true, flat_pred, labels, title="CRF Confusion Matrix", filename="cm_crf.png")
+    
+    print("\n" + "="*40 + "\n>>> DETAILED REPORT: CRF\n" + "="*40)
     print(flat_classification_report(y_test, y_pred, digits=4))
     
     report = flat_classification_report(y_test, y_pred, digits=4, output_dict=True)
@@ -176,7 +187,6 @@ def train_crf(X_train, y_train, X_test, y_test):
 def train_classical_sklearn(model_name, X_train, y_train, X_test, y_test):
     print(f"... Đang training {model_name} ...")
     
-    # Flatten & Vectorize
     X_train_flat = [item for sublist in X_train for item in sublist]
     y_train_flat = [item for sublist in y_train for item in sublist]
     X_test_flat = [item for sublist in X_test for item in sublist]
@@ -187,26 +197,33 @@ def train_classical_sklearn(model_name, X_train, y_train, X_test, y_test):
     X_test_vec = v.transform(X_test_flat)
     
     if model_name == 'LogisticRegression':
-        clf = LogisticRegression(max_iter=500, n_jobs=-1)
+        clf = LogisticRegression(max_iter=500, n_jobs=-1, random_state=SEED)
     elif model_name == 'RandomForest':
         clf = RandomForestClassifier(n_estimators=50, n_jobs=-1, random_state=SEED)
+    elif model_name == 'SVM':
+        print("   -> Sử dụng LinearSVC...")
+        clf = LinearSVC(random_state=SEED, max_iter=2000, dual=False) 
     else:
-        raise ValueError("Model not supported")
+        raise ValueError(f"Model {model_name} chưa được hỗ trợ.")
         
     clf.fit(X_train_vec, y_train_flat)
     y_pred = clf.predict(X_test_vec)
     
-    print("\n" + "="*40)
-    print(f">>> DETAILED REPORT: {model_name}")
-    print("="*40)
+    labels = sorted(list(set(y_test_flat + list(y_pred))))
+    try:
+        plot_ner_confusion_matrix(y_test_flat, y_pred, labels, 
+                                  title=f"{model_name} Confusion Matrix", 
+                                  filename=f"cm_{model_name.replace(' ', '_')}.png")
+    except NameError: pass
+
+    print("\n" + "="*40 + f"\n>>> DETAILED REPORT: {model_name}\n" + "="*40)
     print(classification_report(y_test_flat, y_pred, digits=4))
     
     report = classification_report(y_test_flat, y_pred, digits=4, output_dict=True)
     return clf, report['weighted avg']['f1-score']
 
+
 def train_bilstm(train_sents, test_sents, word2idx, tag2idx):
-    print("... Đang training Bi-LSTM ...")
-    # Lưu ý: Cần import global hoặc truyền vào IDX2TAG để giải mã
     global IDX2TAG 
     
     X_train, y_train = prepare_dl_data(train_sents, word2idx, tag2idx, MAX_LEN)
@@ -215,7 +232,7 @@ def train_bilstm(train_sents, test_sents, word2idx, tag2idx):
     X_tr, X_val, y_tr, y_val = train_test_split(X_train, y_train, test_size=0.1, random_state=SEED)
 
     model = Sequential([
-        Embedding(input_dim=len(word2idx), output_dim=50), # Keras mới tự hiểu input_length
+        Embedding(input_dim=len(word2idx), output_dim=50), 
         Bidirectional(LSTM(units=64, return_sequences=True)),
         Dropout(0.3),
         TimeDistributed(Dense(len(tag2idx), activation="softmax"))
@@ -223,7 +240,6 @@ def train_bilstm(train_sents, test_sents, word2idx, tag2idx):
     model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
     model.fit(X_tr, y_tr, validation_data=(X_val, y_val), batch_size=32, epochs=30, verbose=1)
 
-    # Evaluate
     y_pred_probs = model.predict(X_test, verbose=0)
     y_pred = np.argmax(y_pred_probs, axis=-1)
     y_true = np.argmax(y_test, axis=-1)
@@ -231,105 +247,16 @@ def train_bilstm(train_sents, test_sents, word2idx, tag2idx):
     flat_pred, flat_true = [], []
     for i in range(len(test_sents)):
         true_len = len(test_sents[i])
-        # Cắt padding
         flat_pred.extend([IDX2TAG[idx] for idx in y_pred[i][:true_len]])
         flat_true.extend([IDX2TAG[idx] for idx in y_true[i][:true_len]])
     
-    print("\n" + "="*40)
-    print(">>> DETAILED REPORT: Bi-LSTM")
-    print("="*40)
+    labels = sorted([t for t in tag2idx.keys() if t not in ["PAD", "UNK"]])
+    plot_ner_confusion_matrix(flat_true, flat_pred, labels, title="Bi-LSTM Confusion Matrix", filename="cm_bilstm.png")
+
+    print("\n" + "="*40 + "\n>>> DETAILED REPORT: Bi-LSTM\n" + "="*40)
     print(classification_report(flat_true, flat_pred, digits=4))
 
     report = classification_report(flat_true, flat_pred, digits=4, output_dict=True)
-    return model, report['weighted avg']['f1-score']
-
-# --- PHẦN CHO PHOBERT (Dự phòng) ---
-class NERDataset(Dataset):
-    def __init__(self, sents, tokenizer, tag2idx, max_len=128):
-        self.sents = sents
-        self.tokenizer = tokenizer
-        self.tag2idx = tag2idx
-        self.max_len = max_len
-
-    def __len__(self): return len(self.sents)
-
-    def __getitem__(self, idx):
-        sent = self.sents[idx]
-        words = [t[0] for t in sent]
-        labels = [self.tag2idx[t[1]] for t in sent]
-
-        # Tokenize & Align labels
-        tokenized_inputs = self.tokenizer(words, is_split_into_words=True, 
-                                          padding='max_length', truncation=True, max_length=self.max_len, return_tensors="pt")
-        word_ids = tokenized_inputs.word_ids(batch_index=0)
-        label_ids = []
-        previous_word_idx = None
-        for word_idx in word_ids:
-            if word_idx is None:
-                label_ids.append(-100)
-            elif word_idx != previous_word_idx:
-                label_ids.append(labels[word_idx])
-            else:
-                label_ids.append(-100)
-            previous_word_idx = word_idx
-
-        return {
-            'input_ids': tokenized_inputs['input_ids'][0],
-            'attention_mask': tokenized_inputs['attention_mask'][0],
-            'labels': torch.tensor(label_ids, dtype=torch.long)
-        }
-
-def train_phobert(train_sents, test_sents, tag2idx):
-    print("... Training PhoBERT (vinai/phobert-base) ...")
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    
-    # Load tokenizer & model
-    tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-base-v2")
-    model = AutoModelForTokenClassification.from_pretrained("vinai/phobert-base-v2", num_labels=len(tag2idx))
-    model.to(device)
-    
-    train_dataset = NERDataset(train_sents, tokenizer, tag2idx)
-    test_dataset = NERDataset(test_sents, tokenizer, tag2idx)
-    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=8)
-    
-    optimizer = AdamW(model.parameters(), lr=2e-5)
-
-    # Train Loop (1 epoch demo)
-    model.train()
-    for epoch in range(1):
-        for batch in train_loader:
-            input_ids = batch['input_ids'].to(device)
-            mask = batch['attention_mask'].to(device)
-            labels = batch['labels'].to(device)
-            
-            outputs = model(input_ids, attention_mask=mask, labels=labels)
-            loss = outputs.loss
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
-    
-    # Eval
-    model.eval()
-    true_labels, pred_labels = [], []
-    idx2tag = {v: k for k, v in tag2idx.items()}
-    
-    with torch.no_grad():
-        for batch in test_loader:
-            input_ids = batch['input_ids'].to(device)
-            mask = batch['attention_mask'].to(device)
-            labels = batch['labels'].to(device)
-            
-            outputs = model(input_ids, attention_mask=mask)
-            preds = torch.argmax(outputs.logits, dim=2)
-            
-            for i in range(len(labels)):
-                true_ids = labels[i][labels[i] != -100]
-                pred_ids = preds[i][labels[i] != -100]
-                true_labels.extend([idx2tag[t.item()] for t in true_ids])
-                pred_labels.extend([idx2tag[p.item()] for p in pred_ids])
-
-    report = classification_report(true_labels, pred_labels, digits=4, output_dict=True)
     return model, report['weighted avg']['f1-score']
 
 # =============================================================================
@@ -338,18 +265,11 @@ def train_phobert(train_sents, test_sents, tag2idx):
 
 if __name__ == "__main__":
     # --- 1. Setup Dữ liệu ---
-    # Giả sử bạn đang chạy trong thư mục chứa code và data nằm ở thư mục cha/Data
-    # Bạn cần điều chỉnh đường dẫn này cho phù hợp với môi trường của mình (Local/Kaggle)
-    
-    # Ví dụ đường dẫn trên Kaggle thường là: /kaggle/input/tên-dataset/train_bio_augmented.json
-    # Dưới đây là logic tự động tìm đường dẫn tương đối như trong notebook cũ
     current_folder = os.getcwd()
-    # Nếu chạy local:
     data_folder_path = os.path.abspath(os.path.join(current_folder, '..', 'Data'))
     path_aug = os.path.join(data_folder_path, 'train_bio_augmented.json')
     path_org = os.path.join(data_folder_path, 'train_bio.json')
 
-    # Nếu file không tồn tại, thử tìm ở thư mục hiện tại (cho Kaggle nếu upload vào working)
     if not os.path.exists(path_aug):
         path_aug = 'train_bio_augmented.json'
         path_org = 'train_bio.json'
@@ -382,88 +302,146 @@ if __name__ == "__main__":
     res_crf = measure_performance("CRF", train_crf, X_train_cls, y_train_cls, X_test_cls, y_test_cls)
     if res_crf: 
         performance_log.append(res_crf)
-        f1_crf = res_crf['F1-Score'] # Lưu lại để so sánh sau
+        f1_crf_aug = res_crf['F1-Score'] # [ĐÃ SỬA] Lưu vào biến để dùng sau
 
     # 2. Logistic Regression
     res_lr = measure_performance("Logistic Regression", train_classical_sklearn, "LogisticRegression", X_train_cls, y_train_cls, X_test_cls, y_test_cls)
-    if res_lr: performance_log.append(res_lr)
+    if res_lr: 
+        performance_log.append(res_lr)
+        f1_lr_aug = res_lr['F1-Score'] # [ĐÃ SỬA]
 
     # 3. Random Forest
     res_rf = measure_performance("Random Forest", train_classical_sklearn, "RandomForest", X_train_cls, y_train_cls, X_test_cls, y_test_cls)
-    if res_rf: performance_log.append(res_rf)
+    if res_rf: 
+        performance_log.append(res_rf)
+        f1_rf_aug = res_rf['F1-Score'] # [ĐÃ SỬA]
 
-    # 4. Bi-LSTM
+    # 4. SVM
+    res_svm = measure_performance("SVM", train_classical_sklearn, "SVM", X_train_cls, y_train_cls, X_test_cls, y_test_cls)
+    if res_svm: 
+        performance_log.append(res_svm)
+        f1_svm_aug = res_svm['F1-Score'] # [ĐÃ SỬA]
+
+    # 5. Bi-LSTM
     res_lstm = measure_performance("Bi-LSTM", train_bilstm, train_sents_aug, test_sents_aug, word2idx, TAG2IDX)
-    if res_lstm: performance_log.append(res_lstm)
-    
-    # 5. PhoBERT (Optional - Bỏ comment nếu muốn chạy và đã cài đủ thư viện)
-    # res_bert = measure_performance("PhoBERT", train_phobert, train_sents_aug, test_sents_aug, TAG2IDX)
-    # if res_bert: performance_log.append(res_bert)
+    if res_lstm: 
+        performance_log.append(res_lstm)
+        f1_lstm_aug = res_lstm['F1-Score'] # [ĐÃ SỬA]
 
     # Tổng hợp kết quả
     df_results = pd.DataFrame(performance_log)
     print("\n>>> BẢNG TỔNG HỢP SO SÁNH:")
     print(df_results)
     
-    # Lưu biểu đồ so sánh
     if not df_results.empty:
         plt.figure(figsize=(10, 5))
         plt.bar(df_results['Model'], df_results['F1-Score'], color='teal')
         plt.title('So sánh F1-Score các mô hình')
         plt.ylim(0, 1.0)
-        plt.savefig('model_comparison.png') # Lưu ảnh thay vì show()
-        print("Đã lưu biểu đồ vào 'model_comparison.png'")
+        plt.savefig('model_comparison.png')
+        plt.close()
 
-    # --- KỊCH BẢN 2: SO SÁNH AUGMENTED vs ORIGINAL (CRF) ---
-    print("\n=== KỊCH BẢN 2: AUGMENTED vs ORIGINAL (CRF) ===")
+    # --- KỊCH BẢN 2: SO SÁNH AUGMENTED vs ORIGINAL (ALL MODELS) ---
+    print("\n" + "="*50)
+    print("PHẦN 2: SO SÁNH AUGMENTED vs ORIGINAL DATA")
+    print("="*50)
+    
     data_org = load_data(path_org)
     
-    if data_org and 'f1_crf' in locals():
+    # [ĐÃ SỬA] Kiểm tra đủ biến f1_..._aug
+    if data_org and 'f1_crf_aug' in locals():
         train_sents_org, test_sents_org = train_test_split(data_org, test_size=0.2, random_state=SEED)
-        X_train_org, y_train_org = prepare_classical_data(train_sents_org)
-        X_test_org, y_test_org = prepare_classical_data(test_sents_org)
         
-        print("-> Training CRF on Original Data...")
-        _, f1_org = train_crf(X_train_org, y_train_org, X_test_org, y_test_org)
+        # Classical Data Prep
+        X_tr_org, y_tr_org = prepare_classical_data(train_sents_org)
+        X_te_org, y_te_org = prepare_classical_data(test_sents_org)
         
-        print(f"CRF Original F1:  {f1_org:.4f}")
-        print(f"CRF Augmented F1: {f1_crf:.4f}")
+        # --- A. CRF (Original) ---
+        print("\n-> [1/5] Training CRF on Original Data...")
+        _, f1_crf_org = train_crf(X_tr_org, y_tr_org, X_te_org, y_te_org)
+        
+        # --- B. Logistic Regression (Original) ---
+        print("\n-> [2/5] Training Logistic Regression on Original Data...")
+        _, f1_lr_org = train_classical_sklearn('LogisticRegression', X_tr_org, y_tr_org, X_te_org, y_te_org)
+        
+        # --- C. Random Forest (Original) ---
+        print("\n-> [3/5] Training Random Forest on Original Data...")
+        _, f1_rf_org = train_classical_sklearn('RandomForest', X_tr_org, y_tr_org, X_te_org, y_te_org)
+        
+        # --- D. SVM (Original) [ĐÃ SỬA: Thêm phần này] ---
+        print("\n-> [4/5] Training SVM on Original Data...")
+        _, f1_svm_org = train_classical_sklearn('SVM', X_tr_org, y_tr_org, X_te_org, y_te_org)
+        
+        # --- E. Bi-LSTM (Original) ---
+        print("\n-> [5/5] Training Bi-LSTM on Original Data...")
+        _, f1_lstm_org = train_bilstm(train_sents_org, test_sents_org, word2idx, TAG2IDX)
+
+        # --- TỔNG HỢP SO SÁNH [ĐÃ SỬA: Thêm SVM vào Dataframe] ---
+        comparison_data = {
+            'Model': ['CRF', 'Logistic Reg', 'Random Forest', 'SVM', 'Bi-LSTM'],
+            'Original F1': [f1_crf_org, f1_lr_org, f1_rf_org, f1_svm_org, f1_lstm_org],
+            'Augmented F1': [f1_crf_aug, f1_lr_aug, f1_rf_aug, f1_svm_aug, f1_lstm_aug]
+        }
+        
+        df_comp = pd.DataFrame(comparison_data)
+        df_comp['Improvement'] = df_comp['Augmented F1'] - df_comp['Original F1']
+        
+        print("\n>>> BẢNG SO SÁNH CHI TIẾT:")
+        print(df_comp)
+        
+        df_comp.plot(x='Model', y=['Original F1', 'Augmented F1'], kind='bar', figsize=(10, 6), color=['gray', 'teal'])
+        plt.title("Impact of Data Augmentation on Models")
+        plt.ylabel("F1 Score")
+        plt.ylim(0, 1.0)
+        plt.xticks(rotation=0)
+        plt.grid(axis='y', linestyle='--', alpha=0.7)
+        plt.savefig('augmentation_impact_all_models.png')
+        plt.close()
+        print("✅ Đã lưu biểu đồ so sánh vào 'augmentation_impact_all_models.png'")
+        
     else:
-        print("Bỏ qua kịch bản 2 do thiếu dữ liệu gốc hoặc chưa chạy CRF.")
+        print("⚠️ Bỏ qua Kịch bản 2 do thiếu dữ liệu gốc hoặc chưa chạy xong Kịch bản 1.")
 
     # --- KỊCH BẢN 3: LEARNING CURVE (Ảnh hưởng kích thước dữ liệu) ---
     print("\n=== KỊCH BẢN 3: LEARNING CURVE ===")
-    ratios = [0.2, 0.4, 0.6, 0.8, 1.0]
-    lc_results = {'CRF': [], 'Logistic Regression': [], 'Random Forest': []}
-    
-    # Tập test cố định (Full)
+
+    # A. Cho Classical ML
+    X_test_cls, y_test_cls = prepare_classical_data(test_sents_aug)
     X_test_flat_full = [item for sublist in X_test_cls for item in sublist]
     y_test_flat_full = [item for sublist in y_test_cls for item in sublist]
+    
+    # B. Cho Deep Learning
+    X_test_dl, y_test_dl = prepare_dl_data(test_sents_aug, word2idx, TAG2IDX, MAX_LEN)
+
+    # Cấu hình vòng lặp
+    ratios = [0.33, 0.66, 1.0]
+    # [ĐÃ SỬA] Thêm key 'SVM' vào đây
+    lc_results = {'CRF': [], 'LR': [], 'RF': [], 'SVM': [], 'Bi-LSTM': []} 
     
     for r in ratios:
         subset_size = int(len(train_sents_aug) * r)
         current_sents = train_sents_aug[:subset_size]
         print(f"\n--- Training với {int(r*100)}% dữ liệu ({subset_size} câu) ---")
         
-        # Prep Data
-        X_sub, y_sub = prepare_classical_data(current_sents)
+        # --- A. Prep Data cho Classical ---
+        X_sub_cls, y_sub_cls = prepare_classical_data(current_sents)
         
         # 1. CRF
         try:
             crf_tmp = CRF(algorithm='lbfgs', c1=0.1, c2=0.1, max_iterations=50)
-            crf_tmp.fit(X_sub, y_sub)
+            crf_tmp.fit(X_sub_cls, y_sub_cls)
             y_pred_crf = crf_tmp.predict(X_test_cls)
             s_crf = flat_classification_report(y_test_cls, y_pred_crf, output_dict=True)['weighted avg']['f1-score']
             lc_results['CRF'].append(s_crf)
-        except: lc_results['CRF'].append(0)
+        except Exception as e: lc_results['CRF'].append(0)
         
-        # Prep Data cho LR/RF (cần vectorize lại theo vocab của tập con)
-        X_sub_flat = [item for sublist in X_sub for item in sublist]
-        y_sub_flat = [item for sublist in y_sub for item in sublist]
+        # Prep Data Vectorized cho ML thường
+        X_sub_flat = [item for sublist in X_sub_cls for item in sublist]
+        y_sub_flat = [item for sublist in y_sub_cls for item in sublist]
         
         v_tmp = DictVectorizer(sparse=False)
         X_sub_vec = v_tmp.fit_transform(X_sub_flat)
-        X_test_vec_tmp = v_tmp.transform(X_test_flat_full)
+        X_test_vec_tmp = v_tmp.transform(X_test_flat_full) 
         
         # 2. LR
         try:
@@ -471,8 +449,8 @@ if __name__ == "__main__":
             lr_tmp.fit(X_sub_vec, y_sub_flat)
             y_pred_lr = lr_tmp.predict(X_test_vec_tmp)
             s_lr = classification_report(y_test_flat_full, y_pred_lr, output_dict=True)['weighted avg']['f1-score']
-            lc_results['Logistic Regression'].append(s_lr)
-        except: lc_results['Logistic Regression'].append(0)
+            lc_results['LR'].append(s_lr)
+        except: lc_results['LR'].append(0)
 
         # 3. RF
         try:
@@ -480,20 +458,65 @@ if __name__ == "__main__":
             rf_tmp.fit(X_sub_vec, y_sub_flat)
             y_pred_rf = rf_tmp.predict(X_test_vec_tmp)
             s_rf = classification_report(y_test_flat_full, y_pred_rf, output_dict=True)['weighted avg']['f1-score']
-            lc_results['Random Forest'].append(s_rf)
-        except: lc_results['Random Forest'].append(0)
-        
-        print(f"Result: CRF={lc_results['CRF'][-1]:.3f}, LR={lc_results['Logistic Regression'][-1]:.3f}")
+            lc_results['RF'].append(s_rf)
+        except: lc_results['RF'].append(0)
 
-    # Vẽ biểu đồ Learning Curve
+        # 4. SVM [ĐÃ SỬA: Thêm block này]
+        try:
+            svm_tmp = LinearSVC(random_state=SEED, max_iter=1000, dual=False)
+            svm_tmp.fit(X_sub_vec, y_sub_flat)
+            y_pred_svm = svm_tmp.predict(X_test_vec_tmp)
+            s_svm = classification_report(y_test_flat_full, y_pred_svm, output_dict=True)['weighted avg']['f1-score']
+            lc_results['SVM'].append(s_svm)
+        except Exception as e: 
+            print(f"Lỗi SVM: {e}")
+            lc_results['SVM'].append(0)
+        
+        # 5. Bi-LSTM
+        try: 
+            import tensorflow.keras.backend as K
+            K.clear_session()
+            X_sub_dl, y_sub_dl = prepare_dl_data(current_sents, word2idx, TAG2IDX, MAX_LEN)
+            X_tr, X_val, y_tr, y_val = train_test_split(X_sub_dl, y_sub_dl, test_size=0.1, random_state=SEED)
+            
+            model_tmp = Sequential([
+                Embedding(input_dim=len(word2idx), output_dim=50), 
+                Bidirectional(LSTM(units=64, return_sequences=True)),
+                Dropout(0.3),
+                TimeDistributed(Dense(len(TAG2IDX), activation="softmax"))
+            ])
+            model_tmp.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
+            model_tmp.fit(X_tr, y_tr, validation_data=(X_val, y_val), batch_size=32, epochs=15, verbose=0)
+            
+            y_pred_probs_tmp = model_tmp.predict(X_test_dl, verbose=0)
+            y_pred_tmp = np.argmax(y_pred_probs_tmp, axis=-1)
+            y_true_tmp = np.argmax(y_test_dl, axis=-1)
+            
+            flat_pred_tmp, flat_true_tmp = [], []
+            for i in range(len(test_sents_aug)):
+                true_len = len(test_sents_aug[i])
+                flat_pred_tmp.extend([IDX2TAG[idx] for idx in y_pred_tmp[i][:true_len]])
+                flat_true_tmp.extend([IDX2TAG[idx] for idx in y_true_tmp[i][:true_len]])
+            
+            s_lstm = classification_report(flat_true_tmp, flat_pred_tmp, output_dict=True)['weighted avg']['f1-score']
+            lc_results['Bi-LSTM'].append(s_lstm)
+        except Exception as e: 
+            lc_results['Bi-LSTM'].append(0)
+
+        print(f"Result: CRF={lc_results['CRF'][-1]:.3f}, SVM={lc_results['SVM'][-1]:.3f}, LSTM={lc_results['Bi-LSTM'][-1]:.3f}")
+
+    # Vẽ biểu đồ
     plt.figure(figsize=(10, 6))
     x_axis = [r*100 for r in ratios]
     for name, scores in lc_results.items():
-        plt.plot(x_axis, scores, marker='o', label=name)
+        if scores: 
+            plt.plot(x_axis, scores, marker='o', label=name)
+            
     plt.title("Learning Curve: Data Size vs F1-Score")
     plt.xlabel("% Training Data")
     plt.ylabel("F1-Score")
     plt.legend()
     plt.grid(True)
-    plt.savefig('learning_curve.png')
-    print("Đã lưu biểu đồ vào 'learning_curve.png'")
+    plt.savefig('learning_curve_all_models.png')
+    plt.close()
+    print("✅ Hoàn tất toàn bộ kịch bản.")
