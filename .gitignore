@@ -13,3 +13,5 @@ env/
 Data/*
 
 !Data/.gitkeep
+
+3_Model/saved_models/
