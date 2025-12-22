@@ -503,7 +503,7 @@ if __name__ == "__main__":
         except Exception as e: 
             lc_results['Bi-LSTM'].append(0)
 
-        print(f"Result: CRF={lc_results['CRF'][-1]:.3f}, SVM={lc_results['SVM'][-1]:.3f}, LSTM={lc_results['Bi-LSTM'][-1]:.3f}")
+        print(f"Result: CRF={lc_results['CRF'][-1]:.3f}, SVM={lc_results['SVM'][-1]:.3f}, RF={lc_results['RF'][-1]:.3f}, LR={lc_results['LR'][-1]:.3f}, LSTM={lc_results['Bi-LSTM'][-1]:.3f}")
 
     # Vẽ biểu đồ
     plt.figure(figsize=(10, 6))
