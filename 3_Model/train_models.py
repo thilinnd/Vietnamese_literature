@@ -242,7 +242,7 @@ def train_phobert(train_sents, test_sents, tag2idx):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"PhoBERT device: {device}")
 
-    tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-base-v2")
+    tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-base-v2", use_fast=True)
     model = AutoModelForTokenClassification.from_pretrained("vinai/phobert-base-v2", num_labels=len(tag2idx))
     model.to(device)
     
