@@ -314,6 +314,11 @@ if __name__ == "__main__":
     print("\n" + "="*50)
     print("PHẦN 1: SO SÁNH CÁC MODEL (AUGMENTED DATA)")
     print("="*50)
+
+    
+    # 5. PhoBERT
+    res = measure_performance("PhoBERT", train_phobert, train_sents, test_sents, TAG2IDX)
+    if res: logs.append(res)
     
     # 1. CRF
     res = measure_performance("CRF", train_crf, X_train_cls, y_train_cls, X_test_cls, y_test_cls, os.path.join(SAVE_DIR, 'crf.pkl'))
@@ -331,9 +336,6 @@ if __name__ == "__main__":
     res = measure_performance("Bi-LSTM", train_bilstm, train_sents, test_sents, word2idx, TAG2IDX)
     if res: logs.append(res)
     
-    # 5. PhoBERT
-    res = measure_performance("PhoBERT", train_phobert, train_sents, test_sents, TAG2IDX)
-    if res: logs.append(res)
     
     # KHÔI PHỤC: Vẽ biểu đồ so sánh Model (Bar Chart)
     df_results = pd.DataFrame(logs)
