@@ -1,14 +1,18 @@
+# -*- coding: utf-8 -*-
 """
-Script huấn luyện NER: CRF, LR, RF, Bi-LSTM, PhoBERT.
-Hỗ trợ: Learning Curve (ML), Lưu Model để Voting.
+Script huấn luyện NER Toàn diện:
+1. So sánh đa mô hình (CRF, LR, RF, Bi-LSTM, PhoBERT).
+2. So sánh dữ liệu (Original vs Augmented).
+3. Learning Curve (CRF, LR, RF).
+Hỗ trợ đo RAM, Thời gian và Lưu Model.
 """
 
 import os
 import json
 import time
-import tracemalloc
+import tracemalloc  # Khôi phục đo RAM
 import warnings
-import joblib # Để lưu model ML
+import joblib 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -24,22 +28,19 @@ from sklearn_crfsuite.metrics import flat_classification_report
 
 # Deep Learning Imports
 try:
-    # TensorFlow (cho Bi-LSTM)
     from tensorflow.keras.preprocessing.sequence import pad_sequences
     from tensorflow.keras.utils import to_categorical
     from tensorflow.keras.models import Sequential
     from tensorflow.keras.layers import Embedding, Bidirectional, LSTM, Dense, TimeDistributed, Dropout
     
-    # PyTorch & Transformers (cho PhoBERT)
     import torch
     from torch.utils.data import Dataset, DataLoader
     from transformers import AutoTokenizer, AutoModelForTokenClassification
     from torch.optim import AdamW
-    from tqdm import tqdm # Thanh tiến trình
+    from tqdm import tqdm
 except ImportError:
-    print("Warning: Thiếu thư viện Deep Learning (TensorFlow/PyTorch/Transformers).")
+    print("Warning: Thiếu thư viện Deep Learning.")
 
-# Tắt cảnh báo
 warnings.filterwarnings("ignore")
 
 # --- CẤU HÌNH ---
@@ -53,7 +54,7 @@ TAG2IDX = {}
 IDX2TAG = {}
 
 # =============================================================================
-# 1. DATA PREPARATION UTILS
+# 1. DATA & FEATURE ENGINEERING
 # =============================================================================
 
 def load_data(file_path):
@@ -65,14 +66,11 @@ def load_data(file_path):
 
 def get_tag_mappings(all_sents):
     tags = list(set([t[1] for sent in all_sents for t in sent]))
-    # Đảm bảo padding 'O' hoặc tag đặc biệt
     if "O" not in tags: tags.append("O")
-    
     tag2idx = {t: i for i, t in enumerate(tags)}
     idx2tag = {i: t for t, i in tag2idx.items()}
     return tag2idx, idx2tag
 
-# --- Classical ML Feature Engineering ---
 def word2features(sent, i):
     word = sent[i][0]
     features = {
@@ -99,53 +97,73 @@ def prepare_classical_data(sents):
     y = [[label for token, label in s] for s in sents]
     return X, y
 
-# --- Bi-LSTM Data Prep ---
 def prepare_dl_data(sents, word2idx, tag2idx, max_len):
     X = [[word2idx.get(w[0], word2idx.get("UNK", 0)) for w in s] for s in sents]
     X = pad_sequences(X, maxlen=max_len, padding="post", value=word2idx.get("PAD", 0))
-    
     y = [[tag2idx[w[1]] for w in s] for s in sents]
     y = pad_sequences(y, maxlen=max_len, padding="post", value=tag2idx["O"])
     y = [to_categorical(i, num_classes=len(tag2idx)) for i in y]
     return np.array(X), np.array(y)
 
-# --- Wrapper đo hiệu năng ---
+# --- KHÔI PHỤC: Hàm đo hiệu năng đầy đủ (RAM + Time) ---
 def measure_performance(model_name, train_func, *args, **kwargs):
-    print(f"\n--- ⏱️ Training: {model_name} ---")
-    start = time.time()
-    try:
-        model, f1 = train_func(*args, **kwargs)
-    except Exception as e:
-        print(f"Lỗi {model_name}: {e}")
-        return None
-    end = time.time()
+    print(f"\n--- ⏱️ Bắt đầu đo lường: {model_name} ---")
     
-    print(f"✅ Xong {model_name}: F1={f1:.4f}, Time={end-start:.2f}s")
-    return {'Model': model_name, 'F1-Score': f1, 'Time (s)': end-start}
+    # 1. Theo dõi RAM
+    tracemalloc.start()
+    
+    # 2. Bấm giờ
+    start_time = time.time()
+    
+    try:
+        model, f1_score = train_func(*args, **kwargs)
+    except Exception as e:
+        print(f" Lỗi khi chạy {model_name}: {e}")
+        tracemalloc.stop()
+        return None
+    
+    end_time = time.time()
+    
+    # 3. Lấy thông số RAM
+    current, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    
+    execution_time = end_time - start_time
+    peak_memory_mb = peak / (1024 * 1024)
+    
+    print(f" Hoàn tất {model_name}:")
+    print(f"   - F1-Score: {f1_score:.4f}")
+    print(f"   - Thời gian: {execution_time:.2f}s")
+    print(f"   - RAM đỉnh (Peak): {peak_memory_mb:.2f} MB")
+    
+    return {
+        'Model': model_name,
+        'F1-Score': f1_score,
+        'Time (s)': execution_time,
+        'Memory (MB)': peak_memory_mb
+    }
 
 # =============================================================================
 # 2. MODEL TRAINING FUNCTIONS
 # =============================================================================
 
-def train_crf(X_train, y_train, X_test, y_test):
+def train_crf(X_train, y_train, X_test, y_test, save_path=None):
     crf = CRF(algorithm='lbfgs', c1=0.1, c2=0.1, max_iterations=100, all_possible_transitions=True)
     crf.fit(X_train, y_train)
     y_pred = crf.predict(X_test)
     
-    # Save model
-    joblib.dump(crf, os.path.join(SAVE_DIR, 'crf_model.pkl'))
+    if save_path:
+        joblib.dump(crf, save_path)
     
     report = flat_classification_report(y_test, y_pred, digits=4, output_dict=True)
     return crf, report['weighted avg']['f1-score']
 
 def train_sklearn(model_type, X_train, y_train, X_test, y_test):
-    # Flatten
     X_train_flat = [item for sublist in X_train for item in sublist]
     y_train_flat = [item for sublist in y_train for item in sublist]
     X_test_flat = [item for sublist in X_test for item in sublist]
     y_test_flat = [item for sublist in y_test for item in sublist]
     
-    # Vectorize
     v = DictVectorizer(sparse=False)
     X_train_vec = v.fit_transform(X_train_flat)
     X_test_vec = v.transform(X_test_flat)
@@ -158,9 +176,8 @@ def train_sklearn(model_type, X_train, y_train, X_test, y_test):
     clf.fit(X_train_vec, y_train_flat)
     y_pred = clf.predict(X_test_vec)
     
-    # Save model & vectorizer
-    joblib.dump(clf, os.path.join(SAVE_DIR, f'{model_type}_model.pkl'))
-    joblib.dump(v, os.path.join(SAVE_DIR, 'vectorizer.pkl'))
+    # Save (optional)
+    if model_type == 'LR': joblib.dump(clf, os.path.join(SAVE_DIR, 'lr_model.pkl'))
     
     report = classification_report(y_test_flat, y_pred, digits=4, output_dict=True)
     return clf, report['weighted avg']['f1-score']
@@ -177,13 +194,10 @@ def train_bilstm(train_sents, test_sents, word2idx, tag2idx):
         TimeDistributed(Dense(len(tag2idx), activation="softmax"))
     ])
     model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
-    # Tắt verbose để log gọn hơn
-    model.fit(X_train, y_train, batch_size=32, epochs=10, verbose=0) 
+    model.fit(X_train, y_train, batch_size=32, epochs=10, verbose=0)
     
-    # Save model
     model.save(os.path.join(SAVE_DIR, 'bilstm_model.h5'))
-
-    # Eval
+    
     y_pred = np.argmax(model.predict(X_test, verbose=0), axis=-1)
     y_true = np.argmax(y_test, axis=-1)
     
@@ -196,7 +210,7 @@ def train_bilstm(train_sents, test_sents, word2idx, tag2idx):
     report = classification_report(flat_true, flat_pred, digits=4, output_dict=True)
     return model, report['weighted avg']['f1-score']
 
-# --- PHOBERT SETUP ---
+# --- PHOBERT ---
 class PhoBertDataset(Dataset):
     def __init__(self, sents, tokenizer, tag2idx, max_len=128):
         self.sents = sents
@@ -222,7 +236,6 @@ class PhoBertDataset(Dataset):
             else:
                 label_ids.append(labels[w_idx])
             prev_idx = w_idx
-            
         return {k: v.squeeze(0) for k, v in tokenized.items()}, torch.tensor(label_ids, dtype=torch.long)
 
 def train_phobert(train_sents, test_sents, tag2idx):
@@ -233,35 +246,24 @@ def train_phobert(train_sents, test_sents, tag2idx):
     model = AutoModelForTokenClassification.from_pretrained("vinai/phobert-base-v2", num_labels=len(tag2idx))
     model.to(device)
     
-    train_ds = PhoBertDataset(train_sents, tokenizer, tag2idx)
-    test_ds = PhoBertDataset(test_sents, tokenizer, tag2idx)
-    train_loader = DataLoader(train_ds, batch_size=16, shuffle=True)
-    test_loader = DataLoader(test_ds, batch_size=16)
+    train_loader = DataLoader(PhoBertDataset(train_sents, tokenizer, tag2idx), batch_size=16, shuffle=True)
+    test_loader = DataLoader(PhoBertDataset(test_sents, tokenizer, tag2idx), batch_size=16)
     
     optim = AdamW(model.parameters(), lr=2e-5)
     
-    # Train 3 epochs để có kết quả tốt hơn
-    print("Training PhoBERT epochs...")
+    print("Training PhoBERT (3 epochs)...")
     for epoch in range(3):
         model.train()
-        total_loss = 0
         for batch_inputs, batch_labels in tqdm(train_loader, desc=f"Epoch {epoch+1}"):
             batch_inputs = {k: v.to(device) for k, v in batch_inputs.items()}
             batch_labels = batch_labels.to(device)
-            
             outputs = model(**batch_inputs, labels=batch_labels)
-            loss = outputs.loss
-            loss.backward()
+            outputs.loss.backward()
             optim.step()
             optim.zero_grad()
-            total_loss += loss.item()
-        print(f"Epoch {epoch+1} Loss: {total_loss/len(train_loader):.4f}")
-
-    # Save Model (Quan trọng cho Voting sau này)
+    
     torch.save(model.state_dict(), os.path.join(SAVE_DIR, 'phobert_model.pth'))
-    print(f"Đã lưu PhoBERT model vào {SAVE_DIR}/phobert_model.pth")
-
-    # Evaluate
+    
     model.eval()
     true_labels, pred_labels = [], []
     idx2tag_local = {v: k for k, v in tag2idx.items()}
@@ -269,19 +271,13 @@ def train_phobert(train_sents, test_sents, tag2idx):
     with torch.no_grad():
         for batch_inputs, batch_labels in test_loader:
             batch_inputs = {k: v.to(device) for k, v in batch_inputs.items()}
-            batch_labels = batch_labels.to(device) # (BS, MaxLen)
-            
-            outputs = model(**batch_inputs)
-            preds = torch.argmax(outputs.logits, dim=2) # (BS, MaxLen)
+            batch_labels = batch_labels.to(device)
+            preds = torch.argmax(model(**batch_inputs).logits, dim=2)
             
             for i in range(len(batch_labels)):
-                # Lọc bỏ -100
                 mask = batch_labels[i] != -100
-                t_lbls = batch_labels[i][mask]
-                p_lbls = preds[i][mask]
-                
-                true_labels.extend([idx2tag_local[t.item()] for t in t_lbls])
-                pred_labels.extend([idx2tag_local[p.item()] for p in p_lbls])
+                true_labels.extend([idx2tag_local[t.item()] for t in batch_labels[i][mask]])
+                pred_labels.extend([idx2tag_local[p.item()] for p in preds[i][mask]])
                 
     report = classification_report(true_labels, pred_labels, digits=4, output_dict=True)
     return model, report['weighted avg']['f1-score']
@@ -291,39 +287,38 @@ def train_phobert(train_sents, test_sents, tag2idx):
 # =============================================================================
 
 if __name__ == "__main__":
-    # --- A. LOAD DATA ---
-    path_aug = 'train_bio_augmented.json' 
-    # Check nếu chạy local thì tìm trong ../Data
+    # --- A. SETUP PATHS ---
+    path_aug = 'train_bio_augmented.json'
+    path_org = 'train_bio.json' # File gốc để so sánh Kịch bản 2
+    
     if not os.path.exists(path_aug):
         path_aug = os.path.join('..', 'Data', 'train_bio_augmented.json')
+        path_org = os.path.join('..', 'Data', 'train_bio.json')
 
-    print(f">>> Loading data from: {path_aug}")
-    data = load_data(path_aug)
-    if not data:
-        print("Không tìm thấy dữ liệu!"); exit()
+    print(f">>> Đọc dữ liệu từ: {path_aug}")
+    data_aug = load_data(path_aug)
+    if not data_aug: print("Lỗi data!"); exit()
 
-    train_sents, test_sents = train_test_split(data, test_size=0.2, random_state=SEED)
+    train_sents, test_sents = train_test_split(data_aug, test_size=0.2, random_state=SEED)
     
-    # Global Setup
-    TAG2IDX, IDX2TAG = get_tag_mappings(data)
-    vocab = list(set([t[0] for s in data for t in s])) + ["UNK", "PAD"]
+    TAG2IDX, IDX2TAG = get_tag_mappings(data_aug)
+    vocab = list(set([t[0] for s in data_aug for t in s])) + ["UNK", "PAD"]
     word2idx = {w: i for i, w in enumerate(vocab)}
     
-    # Prep Classical Data (Full)
     X_train_cls, y_train_cls = prepare_classical_data(train_sents)
     X_test_cls, y_test_cls = prepare_classical_data(test_sents)
-
-    logs = []
-
-    # --- B. FULL TRAINING (Để lấy model cho Voting sau này) ---
-    print("\n" + "="*50)
-    print("PHẦN 1: TRAINING FULL MODEL & SAVE")
-    print("="*50)
-
-    # 1. CRF
-    res = measure_performance("CRF", train_crf, X_train_cls, y_train_cls, X_test_cls, y_test_cls)
-    if res: logs.append(res)
     
+    logs = []
+    
+    # --- B. KỊCH BẢN 1: SO SÁNH 5 MODELS ---
+    print("\n" + "="*50)
+    print("PHẦN 1: SO SÁNH CÁC MODEL (AUGMENTED DATA)")
+    print("="*50)
+    
+    # 1. CRF
+    res = measure_performance("CRF", train_crf, X_train_cls, y_train_cls, X_test_cls, y_test_cls, os.path.join(SAVE_DIR, 'crf.pkl'))
+    if res: logs.append(res); f1_crf_aug = res['F1-Score']
+
     # 2. Logistic Regression
     res = measure_performance("Logistic Regression", train_sklearn, 'LR', X_train_cls, y_train_cls, X_test_cls, y_test_cls)
     if res: logs.append(res)
@@ -331,40 +326,89 @@ if __name__ == "__main__":
     # 3. Random Forest
     res = measure_performance("Random Forest", train_sklearn, 'RF', X_train_cls, y_train_cls, X_test_cls, y_test_cls)
     if res: logs.append(res)
-
+    
     # 4. Bi-LSTM
     res = measure_performance("Bi-LSTM", train_bilstm, train_sents, test_sents, word2idx, TAG2IDX)
     if res: logs.append(res)
-
-    # 5. PhoBERT (Đã kích hoạt)
+    
+    # 5. PhoBERT
     res = measure_performance("PhoBERT", train_phobert, train_sents, test_sents, TAG2IDX)
     if res: logs.append(res)
+    
+    # KHÔI PHỤC: Vẽ biểu đồ so sánh Model (Bar Chart)
+    df_results = pd.DataFrame(logs)
+    print("\n>>> KẾT QUẢ TỔNG HỢP:")
+    print(df_results)
+    
+    if not df_results.empty:
+        fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+        
+        # F1 Score
+        axes[0].bar(df_results['Model'], df_results['F1-Score'], color='teal')
+        axes[0].set_title('F1-Score')
+        axes[0].set_ylim(0, 1.0)
+        
+        # Time
+        axes[1].bar(df_results['Model'], df_results['Time (s)'], color='salmon')
+        axes[1].set_title('Training Time (s)')
+        
+        # Memory
+        axes[2].bar(df_results['Model'], df_results['Memory (MB)'], color='purple')
+        axes[2].set_title('Peak Memory (MB)')
+        
+        plt.tight_layout()
+        plt.savefig('model_comparison.png')
+        print("✅ Đã lưu biểu đồ 'model_comparison.png'")
 
-    # In bảng kết quả tổng hợp
-    print("\n>>> KẾT QUẢ TỔNG HỢP (FULL DATA):")
-    print(pd.DataFrame(logs))
-
-    # --- C. LEARNING CURVE (3 Models: CRF, LR, RF) ---
+    # --- C. KỊCH BẢN 2: AUGMENTED vs ORIGINAL (CRF) ---
     print("\n" + "="*50)
-    print("PHẦN 2: LEARNING CURVE (3 MODELS ML)")
+    print("PHẦN 2: SO SÁNH AUGMENTED vs ORIGINAL DATA (CRF)")
+    print("="*50)
+    
+    data_org = load_data(path_org)
+    if data_org and 'f1_crf_aug' in locals():
+        train_org, test_org = train_test_split(data_org, test_size=0.2, random_state=SEED)
+        X_tr_org, y_tr_org = prepare_classical_data(train_org)
+        X_te_org, y_te_org = prepare_classical_data(test_org)
+        
+        print("-> Training CRF on Original Data...")
+        _, f1_org = train_crf(X_tr_org, y_tr_org, X_te_org, y_te_org)
+        
+        print(f"CRF Original F1:  {f1_org:.4f}")
+        print(f"CRF Augmented F1: {f1_crf_aug:.4f}")
+        
+        # Vẽ biểu đồ so sánh Data
+        plt.figure(figsize=(6, 4))
+        plt.bar(['Original', 'Augmented'], [f1_org, f1_crf_aug], color=['gray', 'cyan'])
+        plt.title("Impact of Augmented Data (CRF)")
+        plt.ylabel("F1 Score")
+        plt.ylim(0, 1.0)
+        plt.savefig('data_impact.png')
+        print("✅ Đã lưu biểu đồ 'data_impact.png'")
+    else:
+        print("⚠️ Không tìm thấy dữ liệu gốc hoặc chưa train CRF Augmented.")
+
+    # --- D. KỊCH BẢN 3: LEARNING CURVE (CRF, LR, RF) ---
+    print("\n" + "="*50)
+    print("PHẦN 3: LEARNING CURVE (3 MODELS ML)")
     print("="*50)
     
     ratios = [0.2, 0.4, 0.6, 0.8, 1.0]
     lc_results = {'CRF': [], 'LR': [], 'RF': []}
     
-    # Tập test cố định cho learning curve (đã flatten cho LR/RF)
+    # Flatten tập test một lần dùng chung cho LR/RF
     X_test_flat_full = [item for sublist in X_test_cls for item in sublist]
     y_test_flat_full = [item for sublist in y_test_cls for item in sublist]
 
     for r in ratios:
         size = int(len(train_sents) * r)
         curr_train = train_sents[:size]
-        print(f"\n--- Ratio {int(r*100)}% ({size} sents) ---")
+        print(f"\n--- Training {int(r*100)}% Data ({size} câu) ---")
         
         # Prep Data Subset
         X_sub, y_sub = prepare_classical_data(curr_train)
         
-        # 1. CRF LC
+        # 1. CRF
         try:
             crf_tmp = CRF(algorithm='lbfgs', c1=0.1, c2=0.1, max_iterations=50)
             crf_tmp.fit(X_sub, y_sub)
@@ -373,14 +417,13 @@ if __name__ == "__main__":
             lc_results['CRF'].append(s)
         except: lc_results['CRF'].append(0)
 
-        # Vectorize cho LR/RF (Fit trên subset mới đúng luật)
+        # 2. LR & RF (Cần vectorize lại)
         X_sub_flat = [item for sublist in X_sub for item in sublist]
         y_sub_flat = [item for sublist in y_sub for item in sublist]
         v_tmp = DictVectorizer(sparse=False)
         X_sub_vec = v_tmp.fit_transform(X_sub_flat)
         X_test_vec_tmp = v_tmp.transform(X_test_flat_full)
 
-        # 2. LR LC
         try:
             lr = LogisticRegression(max_iter=100, n_jobs=-1)
             lr.fit(X_sub_vec, y_sub_flat)
@@ -389,7 +432,6 @@ if __name__ == "__main__":
             lc_results['LR'].append(s)
         except: lc_results['LR'].append(0)
 
-        # 3. RF LC
         try:
             rf = RandomForestClassifier(n_estimators=30, n_jobs=-1)
             rf.fit(X_sub_vec, y_sub_flat)
@@ -400,7 +442,7 @@ if __name__ == "__main__":
         
         print(f"Result: CRF={lc_results['CRF'][-1]:.3f}, LR={lc_results['LR'][-1]:.3f}, RF={lc_results['RF'][-1]:.3f}")
 
-    # Vẽ và lưu biểu đồ
+    # Vẽ biểu đồ Learning Curve
     plt.figure(figsize=(10, 6))
     x_axis = [x*100 for x in ratios]
     plt.plot(x_axis, lc_results['CRF'], marker='o', label='CRF')
@@ -413,5 +455,4 @@ if __name__ == "__main__":
     plt.legend()
     plt.grid(True)
     plt.savefig('learning_curve_3models.png')
-    print("\n✅ Đã lưu biểu đồ Learning Curve vào 'learning_curve_3models.png'")
-    print(f"✅ Đã lưu toàn bộ models vào thư mục '{SAVE_DIR}' để dùng cho Voting.")
+    print("✅ Đã lưu 'learning_curve_3models.png'")
