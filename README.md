@@ -1,6 +1,6 @@
 # 🇻🇳 Vietnamese Literature Named Entity Recognition (NER)
 
-Dự án xây dựng **hệ thống Nhận diện Thực thể Tên (NER)** chuyên biệt cho **miền văn học Việt Nam hiện đại**.
+Dự án xây dựng **hệ thống Nhận diện Thực thể Tên (NER)** chuyên biệt cho **Văn học Việt Nam hiện đại**.
 Mô hình được huấn luyện trên dữ liệu gồm **59 tác phẩm** và **51 tác giả**, đồng thời **so sánh hiệu quả giữa các mô hình Machine Learning cổ điển và Deep Learning**.
 
 ---
@@ -102,14 +102,67 @@ Sau khi tải:
 
 ---
 
+
 ## Huấn luyện & đánh giá mô hình
 
-* Thực hiện trong thư mục `3_Model/`
+Quá trình huấn luyện và đánh giá được thiết kế theo **nhiều tình huống thực nghiệm** nhằm phân tích toàn diện hiệu quả của các mô hình NER.
+
+### **3.3.1. Tình huống 1: So sánh các mô hình (Model Comparison)**
+
+Mục tiêu: So sánh hiệu năng giữa các mô hình Machine Learning và Deep Learning.
+
+**Tiêu chí đánh giá**
+
+* **F1-score** (chỉ số chính)
+* **Thời gian huấn luyện**
+* **Mức sử dụng bộ nhớ (RAM / GPU)**
+
+Kết quả giúp lựa chọn mô hình tối ưu giữa độ chính xác và chi phí tính toán.
 
 ---
 
-## Ứng dụng demo
+### **3.3.2. Tình huống 2: Ảnh hưởng của tăng cường dữ liệu (Data Augmentation)**
+
+Mục tiêu: Đánh giá mức cải thiện hiệu quả mô hình khi áp dụng kỹ thuật tăng cường dữ liệu.
+
+So sánh:
+
+* Mô hình huấn luyện **trước khi tăng cường dữ liệu**
+* Mô hình huấn luyện **sau khi tăng cường dữ liệu**
+
+Chỉ số đánh giá chính: **F1-score**.
+
+---
+
+### **3.3.3. Tình huống 3: Phân tích lỗi (Error Analysis)**
+
+Mục tiêu: Hiểu rõ các dạng lỗi phổ biến của mô hình NER.
+
+**Định hướng phân tích**
+
+* Phân tích **Ma trận nhầm lẫn (Confusion Matrix)**
+* Xác định các cặp nhãn dễ bị nhầm lẫn
+
+Kết quả giúp đề xuất hướng cải thiện mô hình và dữ liệu.
+
+---
+
+### **3.3.4. Ảnh hưởng của kích thước dữ liệu huấn luyện**
+
+Mục tiêu: Phân tích mối quan hệ giữa kích thước tập huấn luyện và độ chính xác mô hình.
+
+Thực nghiệm huấn luyện với các tỷ lệ dữ liệu:
+
+* **33%** tập dữ liệu
+* **66%** tập dữ liệu
+* **100%** tập dữ liệu
+
+Quan sát sự thay đổi của **F1-score** để đánh giá mức độ phụ thuộc của mô hình vào quy mô dữ liệu.
+
+---
+
+## 🖥️ Ứng dụng demo
 
 * Thư mục `4_Application/`
-* Giao diện demo sử dụng **mô hình có hiệu năng tốt nhất**
+* Giao diện demo sử dụng mô hình CRF để làm mô hình học cho phần ứng dụng 
 * Cho phép nhập văn bản và hiển thị kết quả NER trực quan
