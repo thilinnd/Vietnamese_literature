@@ -83,7 +83,6 @@ Dữ liệu được thu thập tự động từ **Wikipedia**, tập trung và
 Thống kê số lượng thực thể trong từng nhãn 
 ![Số lượng thực thể trong từng nhãn](result/entities.png)
 
-
 **2.4. Tăng cường dữ liệu**
 
 * Sau khi quan sát và nhận thấy dữ liệu có sự chênh lệch, dẫn đến thiên vị ở những nhóm có nguồn dữ liệu dồi dào như Tác giả (CHAR) hoặc Thời gian(TIME/DATE). Do đó, nhóm tiến hành kỹ thuật Tăng cường dữ liệu để rút ngắn sự chênh lệch này.
@@ -91,7 +90,6 @@ Thống kê số lượng thực thể trong từng nhãn
 
 Thống kê số lượng thực thể sau khi tăng cường dữ liệu 
 ![Số lượng thực thể sau khi tăng cường dữ liệu](result/augmented_entities.png)
-
 
 **Output**
 
@@ -225,7 +223,7 @@ Sản phẩm được thực hiện trong khuôn khổ môn học Xử lý ngôn
 * Vương Thùy Linh ([@thilinnd](https://github.com/thilinnd))
 * Hoàng Thụy Hồng Ân ([@anhoang0502](https://github.com/anhoang0502))
 * Lê Thị Thủy Tiên ([@VuThiDieuTien](https://github.com/VuThiDieuTien))
-* Trần Khánh Ngân ([@khanhngantranvn] (https://github.com/khanhngantranvn))
+* Trần Khánh Ngân ([@khanhngantranvn](https://github.com/khanhngantranvn))
 
 
 
