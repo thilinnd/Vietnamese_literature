@@ -174,6 +174,8 @@ Mô hình sau khi huấn luyện được lưu trữ dạng .pkl trong link dư�
 
 * Về kiến trúc, hệ thống được phát triển chủ yếu bằng Python; trong đó Streamlit được sử dụng để xây dựng giao diện web tương tác, kết hợp với HTML nhằm tăng tính trực quan và thân thiện với người dùng. Cách tiếp cận này giúp hệ thống dễ triển khai, phù hợp cho mục đích trình diễn và nghiên cứu.
 
+* Trải nghiệm trực tiếp sản phẩm của nhóm: [HỆ THỐNG NHẬN DIỆN THỰC THỂ VĂN HỌC VIỆT NAM](https://anhoang-prj-finalnlp-vanhocvn.streamlit.app/?fbclid=IwY2xjawO14TFleHRuA2FlbQIxMQBzcnRjBmFwcF9pZAEwAAEeCa3VQxtIL3TKxRGHpAcQB4UQJMzQctg31bT_OIRQcECYUkIxhujadUE-7r0_aem_CqBt06ekwDF5kYfUnCyCOA)
+
 Một ví dụ được thực hiện ngay trên giao diện hệ thống
 ![Giao diện hệ thống](result/img1.jpg)
 
