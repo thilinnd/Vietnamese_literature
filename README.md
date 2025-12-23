@@ -121,6 +121,15 @@ Mục tiêu: So sánh hiệu năng giữa các mô hình Machine Learning và De
 
 Kết quả giúp lựa chọn mô hình tối ưu giữa độ chính xác và chi phí tính toán.
 
+### Bảng so sánh hiệu năng các mô hình
+
+| Mô hình | F1-Score | Thời gian (giây) | Bộ nhớ (MB) |
+| :--- | :---: | :---: | :---: |
+| **CRF** | **0.938136** | **7.934822** | **6.118826** |
+| Random Forest | 0.937038 | 112.472337 | 5337.221592 |
+| SVM | 0.934623 | 11.940323 | 3813.562788 |
+| Bi-LSTM | 0.928436 | 72.710842 | 77.786265 |
+| Logistic Regression | 0.928050 | 203.331709 | 3825.562808 |
 
 ### **3.3.2. Tình huống 2: Ảnh hưởng của tăng cường dữ liệu (Data Augmentation)**
 
