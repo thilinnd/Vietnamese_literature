@@ -167,7 +167,7 @@ def plot_ner_confusion_matrix(y_true, y_pred, labels, title="Confusion Matrix", 
 # =============================================================================
 
 def train_crf(X_train, y_train, X_test, y_test):
-    crf = CRF(algorithm='lbfgs', c1=0.1, c2=0.1, max_iterations=100)
+    crf = CRF(algorithm='lbfgs', c1=0.1, c2=0.1, max_iterations=500)
     crf.fit(X_train, y_train)
     
     y_pred = crf.predict(X_test)
@@ -202,7 +202,7 @@ def train_classical_sklearn(model_name, X_train, y_train, X_test, y_test):
         clf = RandomForestClassifier(n_estimators=50, n_jobs=-1, random_state=SEED)
     elif model_name == 'SVM':
         print("   -> Sử dụng LinearSVC...")
-        clf = LinearSVC(random_state=SEED, max_iter=2000, dual=False) 
+        clf = LinearSVC(random_state=SEED, max_iter=500, dual=False) 
     else:
         raise ValueError(f"Model {model_name} chưa được hỗ trợ.")
         
@@ -238,7 +238,7 @@ def train_bilstm(train_sents, test_sents, word2idx, tag2idx):
         TimeDistributed(Dense(len(tag2idx), activation="softmax"))
     ])
     model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
-    model.fit(X_tr, y_tr, validation_data=(X_val, y_val), batch_size=32, epochs=30, verbose=1)
+    model.fit(X_tr, y_tr, validation_data=(X_val, y_val), batch_size=32, epochs=50, verbose=1)
 
     y_pred_probs = model.predict(X_test, verbose=0)
     y_pred = np.argmax(y_pred_probs, axis=-1)
@@ -428,7 +428,7 @@ if __name__ == "__main__":
         
         # 1. CRF
         try:
-            crf_tmp = CRF(algorithm='lbfgs', c1=0.1, c2=0.1, max_iterations=50)
+            crf_tmp = CRF(algorithm='lbfgs', c1=0.1, c2=0.1, max_iterations=500)
             crf_tmp.fit(X_sub_cls, y_sub_cls)
             y_pred_crf = crf_tmp.predict(X_test_cls)
             s_crf = flat_classification_report(y_test_cls, y_pred_crf, output_dict=True)['weighted avg']['f1-score']
@@ -445,7 +445,7 @@ if __name__ == "__main__":
         
         # 2. LR
         try:
-            lr_tmp = LogisticRegression(max_iter=100, n_jobs=-1)
+            lr_tmp = LogisticRegression(max_iter=500, n_jobs=-1)
             lr_tmp.fit(X_sub_vec, y_sub_flat)
             y_pred_lr = lr_tmp.predict(X_test_vec_tmp)
             s_lr = classification_report(y_test_flat_full, y_pred_lr, output_dict=True)['weighted avg']['f1-score']
@@ -461,9 +461,8 @@ if __name__ == "__main__":
             lc_results['RF'].append(s_rf)
         except: lc_results['RF'].append(0)
 
-        # 4. SVM [ĐÃ SỬA: Thêm block này]
         try:
-            svm_tmp = LinearSVC(random_state=SEED, max_iter=1000, dual=False)
+            svm_tmp = LinearSVC(random_state=SEED, max_iter=500, dual=False)
             svm_tmp.fit(X_sub_vec, y_sub_flat)
             y_pred_svm = svm_tmp.predict(X_test_vec_tmp)
             s_svm = classification_report(y_test_flat_full, y_pred_svm, output_dict=True)['weighted avg']['f1-score']
@@ -486,7 +485,7 @@ if __name__ == "__main__":
                 TimeDistributed(Dense(len(TAG2IDX), activation="softmax"))
             ])
             model_tmp.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
-            model_tmp.fit(X_tr, y_tr, validation_data=(X_val, y_val), batch_size=32, epochs=15, verbose=0)
+            model_tmp.fit(X_tr, y_tr, validation_data=(X_val, y_val), batch_size=32, epochs=50, verbose=1)
             
             y_pred_probs_tmp = model_tmp.predict(X_test_dl, verbose=0)
             y_pred_tmp = np.argmax(y_pred_probs_tmp, axis=-1)
@@ -503,7 +502,7 @@ if __name__ == "__main__":
         except Exception as e: 
             lc_results['Bi-LSTM'].append(0)
 
-        print(f"Result: CRF={lc_results['CRF'][-1]:.3f}, SVM={lc_results['SVM'][-1]:.3f}, RF={lc_results['RF'][-1]:.3f}, LR={lc_results['LR'][-1]:.3f}, LSTM={lc_results['Bi-LSTM'][-1]:.3f}")
+        print(f"Result: CRF={lc_results['CRF'][-1]:.3f}, SVM={lc_results['SVM'][-1]:.3f}, RF={lc_results['RF'][-1]:.3f},  LSTM={lc_results['Bi-LSTM'][-1]:.3f}")
 
     # Vẽ biểu đồ
     plt.figure(figsize=(10, 6))
