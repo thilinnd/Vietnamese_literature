@@ -186,7 +186,7 @@ Sản phẩm được thực hiện trong khuôn khổ môn học Xử lý ngôn
 **Thành viên nhóm:**
 
 * Vương Thùy Linh
-* Hoàng Thụy Hồng Ân (GitHub: [anhoang0502](https://github.com/anhoang0502))
+* Hoàng Thụy Hồng Ân (GitHub: [@anhoang0502](https://github.com/anhoang0502))
 * Lê Thị Thủy Tiên
 * Trần Khánh Ngân
 
