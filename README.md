@@ -78,10 +78,16 @@ Dữ liệu được thu thập tự động từ **Wikipedia**, tập trung và
 
 * Chuyển file JSON từ Label Studio sang định dạng **BIO (Begin – Inside – Outside)**
 * Các câu **không chứa thực thể sẽ bị loại bỏ** để giảm nhiễu
+* File JSON (Data/train_bio.json) tổng hợp ở định dạng BIO
+
+**2.4. Tăng cường dữ liệu**
+
+* Sau khi quan sát và nhận thấy dữ liệu có sự chênh lệch, dẫn đến thiên vị ở những nhóm có nguồn dữ liệu dồi dào như Tác giả (CHAR) hoặc Thời gian(TIME/DATE). Do đó, nhóm tiến hành kỹ thuật Tăng cường dữ liệu để rút ngắn sự chênh lệch này.
+* File JSON sau khi thực hiện tăng cường có định dạng (Data/train_bio_augmented.json)
 
 **Output**
 
-* File JSON (Data/train_bio.json) tổng hợp ở định dạng BIO, sẵn sàng cho huấn luyện mô hình
+* File JSON (Data/train_bio_augmented.json) tổng hợp ở định dạng BIO là nguồn dữ liệu chính được thực hiện trong các bước huấn luyện, so sánh và đánh giá ở bước tiếp theo. 
 
 ---
 
@@ -91,15 +97,11 @@ Người dùng **có thể bỏ qua toàn bộ bước chuẩn bị dữ liệu*
 
 🔗 **Google Drive**
 [https://drive.google.com/drive/folders/1LLXzent3J1pMUhYszDa6cWiXVdpOktkx](https://drive.google.com/drive/folders/1LLXzent3J1pMUhYszDa6cWiXVdpOktkx)
-[https://drive.google.com/drive/folders/1FfrHfUeSdFUTIBU8DVzZFyBh4QO7VJzy](https://drive.google.com/drive/folders/1FfrHfUeSdFUTIBU8DVzZFyBh4QO7VJzy)
 
 Sau khi tải:
 
 * Giải nén và đặt đúng cấu trúc:
-
   * `Data/`
-  * `saved_models/`
-
 ---
 
 
@@ -119,7 +121,6 @@ Mục tiêu: So sánh hiệu năng giữa các mô hình Machine Learning và De
 
 Kết quả giúp lựa chọn mô hình tối ưu giữa độ chính xác và chi phí tính toán.
 
----
 
 ### **3.3.2. Tình huống 2: Ảnh hưởng của tăng cường dữ liệu (Data Augmentation)**
 
@@ -132,7 +133,6 @@ So sánh:
 
 Chỉ số đánh giá chính: **F1-score**.
 
----
 
 ### **3.3.3. Tình huống 3: Phân tích lỗi (Error Analysis)**
 
@@ -145,7 +145,6 @@ Mục tiêu: Hiểu rõ các dạng lỗi phổ biến của mô hình NER.
 
 Kết quả giúp đề xuất hướng cải thiện mô hình và dữ liệu.
 
----
 
 ### **3.3.4. Ảnh hưởng của kích thước dữ liệu huấn luyện**
 
@@ -159,10 +158,18 @@ Thực nghiệm huấn luyện với các tỷ lệ dữ liệu:
 
 Quan sát sự thay đổi của **F1-score** để đánh giá mức độ phụ thuộc của mô hình vào quy mô dữ liệu.
 
+Mô hình sau khi huấn luyện được lưu trữ dạng .pkl trong link dưới đây 
+
+🔗 **Google Drive**
+[https://drive.google.com/drive/folders/1FfrHfUeSdFUTIBU8DVzZFyBh4QO7VJzy](https://drive.google.com/drive/folders/1FfrHfUeSdFUTIBU8DVzZFyBh4QO7VJzy)
 ---
 
-## 🖥️ Ứng dụng demo
+## Ứng dụng demo
 
 * Thư mục `4_Application/`
-* Giao diện demo sử dụng mô hình CRF để làm mô hình học cho phần ứng dụng 
-* Cho phép nhập văn bản và hiển thị kết quả NER trực quan
+
+* Nhóm nghiên cứu xây dựng giao diện web mang tên “Hệ thống nhận diện thực thể văn học Việt Nam” nhằm cho phép người dùng tương tác trực tiếp và kiểm chứng kết quả của mô hình NER đã huấn luyện trên dữ liệu văn bản văn học Việt Nam.
+
+* Dựa trên kết quả đánh giá thực nghiệm (ma trận nhầm lẫn, bảng thống kê và biểu đồ hiệu năng), mô hình Conditional Random Field (CRF) đạt độ chính xác cao và ổn định nhất, do đó được lựa chọn làm mô hình lõi của hệ thống.
+
+* Về kiến trúc, hệ thống được phát triển chủ yếu bằng Python; trong đó Streamlit được sử dụng để xây dựng giao diện web tương tác, kết hợp với HTML nhằm tăng tính trực quan và thân thiện với người dùng. Cách tiếp cận này giúp hệ thống dễ triển khai, phù hợp cho mục đích trình diễn và nghiên cứu.
