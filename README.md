@@ -119,7 +119,6 @@ Mục tiêu: So sánh hiệu năng giữa các mô hình Machine Learning và De
 
 Kết quả giúp lựa chọn mô hình tối ưu giữa độ chính xác và chi phí tính toán.
 
----
 
 ### **3.3.2. Tình huống 2: Ảnh hưởng của tăng cường dữ liệu (Data Augmentation)**
 
@@ -132,7 +131,6 @@ So sánh:
 
 Chỉ số đánh giá chính: **F1-score**.
 
----
 
 ### **3.3.3. Tình huống 3: Phân tích lỗi (Error Analysis)**
 
@@ -145,7 +143,6 @@ Mục tiêu: Hiểu rõ các dạng lỗi phổ biến của mô hình NER.
 
 Kết quả giúp đề xuất hướng cải thiện mô hình và dữ liệu.
 
----
 
 ### **3.3.4. Ảnh hưởng của kích thước dữ liệu huấn luyện**
 
@@ -161,8 +158,12 @@ Quan sát sự thay đổi của **F1-score** để đánh giá mức độ ph�
 
 ---
 
-## 🖥️ Ứng dụng demo
+## Ứng dụng demo
 
 * Thư mục `4_Application/`
-* Giao diện demo sử dụng mô hình CRF để làm mô hình học cho phần ứng dụng 
-* Cho phép nhập văn bản và hiển thị kết quả NER trực quan
+
+* Nhóm nghiên cứu xây dựng giao diện web mang tên “Hệ thống nhận diện thực thể văn học Việt Nam” nhằm cho phép người dùng tương tác trực tiếp và kiểm chứng kết quả của mô hình NER đã huấn luyện trên dữ liệu văn bản văn học Việt Nam.
+
+* Dựa trên kết quả đánh giá thực nghiệm (ma trận nhầm lẫn, bảng thống kê và biểu đồ hiệu năng), mô hình Conditional Random Field (CRF) đạt độ chính xác cao và ổn định nhất, do đó được lựa chọn làm mô hình lõi của hệ thống.
+
+* Về kiến trúc, hệ thống được phát triển chủ yếu bằng Python; trong đó Streamlit được sử dụng để xây dựng giao diện web tương tác, kết hợp với HTML nhằm tăng tính trực quan và thân thiện với người dùng. Cách tiếp cận này giúp hệ thống dễ triển khai, phù hợp cho mục đích trình diễn và nghiên cứu.
