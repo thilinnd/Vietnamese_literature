@@ -107,6 +107,15 @@ Sau khi tải:
 
 ## Huấn luyện & đánh giá mô hình
 
+``` bash
+python 3_Model/train_models.py
+```
+
+Mô hình sau khi huấn luyện được lưu trữ dạng .pkl trong link dưới đây 
+
+🔗 **Google Drive** [https://drive.google.com/drive/folders/1FfrHfUeSdFUTIBU8DVzZFyBh4QO7VJzy](https://drive.google.com/drive/folders/1FfrHfUeSdFUTIBU8DVzZFyBh4QO7VJzy)
+
+
 Quá trình huấn luyện và đánh giá được thiết kế theo **nhiều tình huống thực nghiệm** nhằm phân tích toàn diện hiệu quả của các mô hình NER.
 
 ### **3.3.1. Tình huống 1: So sánh các mô hình (Model Comparison)**
@@ -121,7 +130,7 @@ Mục tiêu: So sánh hiệu năng giữa các mô hình Machine Learning và De
 
 Kết quả giúp lựa chọn mô hình tối ưu giữa độ chính xác và chi phí tính toán.
 
-### Bảng so sánh hiệu năng các mô hình
+** Bảng so sánh hiệu năng các mô hình **
 
 | Mô hình | F1-Score | Thời gian (giây) | Bộ nhớ (MB) |
 | :--- | :---: | :---: | :---: |
@@ -142,6 +151,15 @@ So sánh:
 
 Chỉ số đánh giá chính: **F1-score**.
 
+** So sánh hiệu suất các mô hình trước và sau khi tăng cường dữ liệu **
+
+| Mô hình | F1-Score | Thời gian (giây) | Bộ nhớ (MB) |
+| :--- | :---: | :---: | :---: |
+| **CRF** | **0.938136** | **7.934822** | **6.118826** |
+| Random Forest | 0.937038 | 112.472337 | 5337.221592 |
+| SVM | 0.934623 | 11.940323 | 3813.562788 |
+| Bi-LSTM | 0.928436 | 72.710842 | 77.786265 |
+| Logistic Regression | 0.928050 | 203.331709 | 3825.562808 |
 
 ### **3.3.3. Tình huống 3: Phân tích lỗi (Error Analysis)**
 
@@ -154,6 +172,8 @@ Mục tiêu: Hiểu rõ các dạng lỗi phổ biến của mô hình NER.
 
 Kết quả giúp đề xuất hướng cải thiện mô hình và dữ liệu.
 
+** Ví dụ: Ma trận nhầm lẫn - thuật Random Forest**
+![CF-Random Forest](result/cm_RandomForest.png)
 
 ### **3.3.4. Ảnh hưởng của kích thước dữ liệu huấn luyện**
 
@@ -167,9 +187,8 @@ Thực nghiệm huấn luyện với các tỷ lệ dữ liệu:
 
 Quan sát sự thay đổi của **F1-score** để đánh giá mức độ phụ thuộc của mô hình vào quy mô dữ liệu.
 
-Mô hình sau khi huấn luyện được lưu trữ dạng .pkl trong link dưới đây 
-
-🔗 **Google Drive** [https://drive.google.com/drive/folders/1FfrHfUeSdFUTIBU8DVzZFyBh4QO7VJzy](https://drive.google.com/drive/folders/1FfrHfUeSdFUTIBU8DVzZFyBh4QO7VJzy)
+** Kết quả **
+![Sự thay đổi của mẫu ảnh hưởng lên mô hình](result/learning_curve_all_models.png)
 
 ---
 
@@ -199,7 +218,8 @@ Sản phẩm được thực hiện trong khuôn khổ môn học Xử lý ngôn
 * Vương Thùy Linh ([@thilinnd](https://github.com/thilinnd))
 * Hoàng Thụy Hồng Ân ([@anhoang0502](https://github.com/anhoang0502))
 * Lê Thị Thủy Tiên ([@VuThiDieuTien](https://github.com/VuThiDieuTien))
-* Trần Khánh Ngân
+* Trần Khánh Ngân ([@khanhngantranvn] (https://github.com/khanhngantranvn))
+
 
 
 
