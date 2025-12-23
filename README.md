@@ -160,8 +160,7 @@ Quan sát sự thay đổi của **F1-score** để đánh giá mức độ ph�
 
 Mô hình sau khi huấn luyện được lưu trữ dạng .pkl trong link dưới đây 
 
-🔗 **Google Drive**
-[https://drive.google.com/drive/folders/1FfrHfUeSdFUTIBU8DVzZFyBh4QO7VJzy](https://drive.google.com/drive/folders/1FfrHfUeSdFUTIBU8DVzZFyBh4QO7VJzy)
+🔗 **Google Drive** [https://drive.google.com/drive/folders/1FfrHfUeSdFUTIBU8DVzZFyBh4QO7VJzy](https://drive.google.com/drive/folders/1FfrHfUeSdFUTIBU8DVzZFyBh4QO7VJzy)
 ---
 
 ## Ứng dụng demo
