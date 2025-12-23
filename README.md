@@ -80,10 +80,18 @@ Dữ liệu được thu thập tự động từ **Wikipedia**, tập trung và
 * Các câu **không chứa thực thể sẽ bị loại bỏ** để giảm nhiễu
 * File JSON (Data/train_bio.json) tổng hợp ở định dạng BIO
 
+Thống kê số lượng thực thể trong từng nhãn 
+![Số lượng thực thể trong từng nhãn](result/entities.png)
+
+
 **2.4. Tăng cường dữ liệu**
 
 * Sau khi quan sát và nhận thấy dữ liệu có sự chênh lệch, dẫn đến thiên vị ở những nhóm có nguồn dữ liệu dồi dào như Tác giả (CHAR) hoặc Thời gian(TIME/DATE). Do đó, nhóm tiến hành kỹ thuật Tăng cường dữ liệu để rút ngắn sự chênh lệch này.
 * File JSON sau khi thực hiện tăng cường có định dạng (Data/train_bio_augmented.json)
+
+Thống kê số lượng thực thể sau khi tăng cường dữ liệu 
+![Số lượng thực thể sau khi tăng cường dữ liệu](result/augmented_entities.png)
+
 
 **Output**
 
@@ -103,7 +111,6 @@ Sau khi tải:
 * Giải nén và đặt đúng cấu trúc:
   * `Data/`
 ---
-
 
 ## Huấn luyện & đánh giá mô hình
 
@@ -130,7 +137,7 @@ Mục tiêu: So sánh hiệu năng giữa các mô hình Machine Learning và De
 
 Kết quả giúp lựa chọn mô hình tối ưu giữa độ chính xác và chi phí tính toán.
 
-** Bảng so sánh hiệu năng các mô hình **
+**Bảng so sánh hiệu năng các mô hình**
 
 | Mô hình | F1-Score | Thời gian (giây) | Bộ nhớ (MB) |
 | :--- | :---: | :---: | :---: |
@@ -151,7 +158,7 @@ So sánh:
 
 Chỉ số đánh giá chính: **F1-score**.
 
-** So sánh hiệu suất các mô hình trước và sau khi tăng cường dữ liệu **
+**So sánh hiệu suất các mô hình trước và sau khi tăng cường dữ liệu**
 
 | Mô hình | F1-Score | Thời gian (giây) | Bộ nhớ (MB) |
 | :--- | :---: | :---: | :---: |
@@ -172,7 +179,7 @@ Mục tiêu: Hiểu rõ các dạng lỗi phổ biến của mô hình NER.
 
 Kết quả giúp đề xuất hướng cải thiện mô hình và dữ liệu.
 
-** Ví dụ: Ma trận nhầm lẫn - thuật Random Forest**
+**Ví dụ: Ma trận nhầm lẫn - thuật Random Forest**
 ![CF-Random Forest](result/cm_RandomForest.png)
 
 ### **3.3.4. Ảnh hưởng của kích thước dữ liệu huấn luyện**
@@ -187,7 +194,7 @@ Thực nghiệm huấn luyện với các tỷ lệ dữ liệu:
 
 Quan sát sự thay đổi của **F1-score** để đánh giá mức độ phụ thuộc của mô hình vào quy mô dữ liệu.
 
-** Kết quả **
+**Kết quả**
 ![Sự thay đổi của mẫu ảnh hưởng lên mô hình](result/learning_curve_all_models.png)
 
 ---
