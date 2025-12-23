@@ -9,3 +9,5 @@ transformers
 accelerate
 sentencepiece
 sklearn-crfsuite
+streamlit
+pyvi

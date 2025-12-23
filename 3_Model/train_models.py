@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import joblib
+import pickle 
 
 # Sklearn Imports
 from sklearn.svm import LinearSVC
@@ -41,7 +43,9 @@ warnings.filterwarnings("ignore")
 # --- CẤU HÌNH TOÀN CỤC ---
 SEED = 42
 MAX_LEN = 128  # Độ dài câu tối đa cho DL models
-SAVE_DIR = 'saved_models'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) 
+SAVE_DIR = os.path.join(BASE_DIR, '..', 'saved_models')
+
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 # Biến toàn cục map nhãn (sẽ cập nhật khi load data)
@@ -299,35 +303,44 @@ if __name__ == "__main__":
     X_test_cls, y_test_cls = prepare_classical_data(test_sents_aug)
 
     # 1. CRF
-    res_crf = measure_performance("CRF", train_crf, X_train_cls, y_train_cls, X_test_cls, y_test_cls)
-    if res_crf: 
-        performance_log.append(res_crf)
-        f1_crf_aug = res_crf['F1-Score'] # [ĐÃ SỬA] Lưu vào biến để dùng sau
+    crf_model, f1_crf = train_crf(X_train_cls, y_train_cls, X_test_cls, y_test_cls)
+    with open(os.path.join(SAVE_DIR, 'crf_model.pkl'), 'wb') as f:
+        pickle.dump(crf_model, f)
+    performance_log.append({'Model': 'CRF', 'F1-Score': f1_crf})
+    f1_crf_aug = f1_crf
 
     # 2. Logistic Regression
-    res_lr = measure_performance("Logistic Regression", train_classical_sklearn, "LogisticRegression", X_train_cls, y_train_cls, X_test_cls, y_test_cls)
-    if res_lr: 
-        performance_log.append(res_lr)
-        f1_lr_aug = res_lr['F1-Score'] # [ĐÃ SỬA]
+    lr_model, f1_lr = train_classical_sklearn("LogisticRegression", X_train_cls, y_train_cls, X_test_cls, y_test_cls)
+
+    joblib.dump(lr_model, os.path.join(SAVE_DIR, 'lr_model.pkl'))
+
+    performance_log.append({'Model': 'Logistic Regression', 'F1-Score': f1_lr})
+    f1_lr_aug = f1_lr
 
     # 3. Random Forest
-    res_rf = measure_performance("Random Forest", train_classical_sklearn, "RandomForest", X_train_cls, y_train_cls, X_test_cls, y_test_cls)
-    if res_rf: 
-        performance_log.append(res_rf)
-        f1_rf_aug = res_rf['F1-Score'] # [ĐÃ SỬA]
+    rf_model, f1_rf = train_classical_sklearn("RandomForest", X_train_cls, y_train_cls, X_test_cls, y_test_cls)
+
+    joblib.dump(rf_model, os.path.join(SAVE_DIR, 'rf_model.pkl'))
+    performance_log.append({'Model': 'Random Forest', 'F1-Score': f1_rf})
+    f1_rf_aug = f1_rf
 
     # 4. SVM
-    res_svm = measure_performance("SVM", train_classical_sklearn, "SVM", X_train_cls, y_train_cls, X_test_cls, y_test_cls)
-    if res_svm: 
-        performance_log.append(res_svm)
-        f1_svm_aug = res_svm['F1-Score'] # [ĐÃ SỬA]
+    svm_model, f1_svm = train_classical_sklearn("SVM", X_train_cls, y_train_cls, X_test_cls, y_test_cls)
+    joblib.dump(svm_model, os.path.join(SAVE_DIR, 'svm_model.pkl'))
 
+    performance_log.append({'Model': 'SVM', 'F1-Score': f1_svm})
+    f1_svm_aug = f1_svm
+    
     # 5. Bi-LSTM
-    res_lstm = measure_performance("Bi-LSTM", train_bilstm, train_sents_aug, test_sents_aug, word2idx, TAG2IDX)
-    if res_lstm: 
-        performance_log.append(res_lstm)
-        f1_lstm_aug = res_lstm['F1-Score'] # [ĐÃ SỬA]
+    lstm_model, f1_lstm = train_bilstm(train_sents_aug, test_sents_aug, word2idx, TAG2IDX)
 
+    lstm_model.save(os.path.join(SAVE_DIR, 'bi_lstm_model.keras'))
+
+    with open(os.path.join(SAVE_DIR, 'bi_lstm_config.pkl'), 'wb') as f:
+        pickle.dump({'word2idx': word2idx, 'tag2idx': TAG2IDX}, f)
+
+    performance_log.append({'Model': 'Bi-LSTM', 'F1-Score': f1_lstm})
+    f1_lstm_aug = f1_lstm
     # Tổng hợp kết quả
     df_results = pd.DataFrame(performance_log)
     print("\n>>> BẢNG TỔNG HỢP SO SÁNH:")
