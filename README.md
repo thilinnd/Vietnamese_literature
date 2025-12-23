@@ -173,3 +173,22 @@ Mô hình sau khi huấn luyện được lưu trữ dạng .pkl trong link dư�
 * Dựa trên kết quả đánh giá thực nghiệm (ma trận nhầm lẫn, bảng thống kê và biểu đồ hiệu năng), mô hình Conditional Random Field (CRF) đạt độ chính xác cao và ổn định nhất, do đó được lựa chọn làm mô hình lõi của hệ thống.
 
 * Về kiến trúc, hệ thống được phát triển chủ yếu bằng Python; trong đó Streamlit được sử dụng để xây dựng giao diện web tương tác, kết hợp với HTML nhằm tăng tính trực quan và thân thiện với người dùng. Cách tiếp cận này giúp hệ thống dễ triển khai, phù hợp cho mục đích trình diễn và nghiên cứu.
+
+Một ví dụ được thực hiện ngay trên giao diện hệ thống
+![Giao diện hệ thống](result/img1.jpg)
+
+---
+
+Sản phẩm được thực hiện trong khuôn khổ môn học Xử lý ngôn ngữ tự nhiên – Đại học Kinh tế Thành phố Hồ Chí Minh (UEH).
+
+**Giảng viên hướng dẫn:** TS. Đặng Ngọc Hoàng Thành
+
+**Thành viên nhóm:**
+
+* Vương Thùy Linh
+* Hoàng Thụy Hồng Ân (GitHub: `anhoang0502`)
+* Lê Thị Thủy Tiên
+* Trần Khánh Ngân
+
+
+
